@@ -7,9 +7,9 @@ namespace Webp2Png;
 
 internal static class Program
 {
-    private const string appName = "Webp2Png";
-    private const string webpExtension = ".webp";
-    private const string pngExtension = ".png";
+    private const string AppName = "Webp2Png";
+    private const string WebpExtension = ".webp";
+    private const string PngExtension = ".png";
 
 
     public static void Main(string[] args)
@@ -31,7 +31,7 @@ internal static class Program
             Environment.Exit(Uninstall());
         }
 
-        
+
         Environment.Exit(WebpToPng(args[0]));
     }
 
@@ -43,17 +43,18 @@ internal static class Program
             Console.Error.WriteLine($"There is no file at '{path}'.");
             return -1;
         }
-        
+
         try
         {
-            var outPath = Path.ChangeExtension(path, pngExtension);
+            var outPath = Path.ChangeExtension(path, PngExtension);
             using (var image = Image.Load(path))
             {
                 image.SaveAsPng(outPath);
             }
+
             File.Delete(path);
             return 0;
-        } 
+        }
         catch (Exception e)
         {
             Console.Error.WriteLine(e.Message);
@@ -65,7 +66,7 @@ internal static class Program
     {
         try
         {
-            Registry.ClassesRoot.DeleteSubKeyTree($@"*\shell\{appName}");
+            Registry.ClassesRoot.DeleteSubKeyTree($@"*\shell\{AppName}");
             return 0;
         }
         catch (Exception e)
@@ -85,16 +86,17 @@ internal static class Program
                 Console.Error.WriteLine("Can't determine own path!");
                 return -1;
             }
+
             pathToExe = Path.GetFullPath(pathToExe);
 
-            using (var key = Registry.ClassesRoot.CreateSubKey($@"*\shell\{appName}"))
+            using (var key = Registry.ClassesRoot.CreateSubKey($@"*\shell\{AppName}"))
             {
                 key.SetValue("", "Convert to Png");
-                key.SetValue("AppliesTo", webpExtension);
+                key.SetValue("AppliesTo", WebpExtension);
                 key.SetValue("icon", pathToExe + ",0");
             }
 
-            using (var commandKey = Registry.ClassesRoot.CreateSubKey($@"*\shell\{appName}\command"))
+            using (var commandKey = Registry.ClassesRoot.CreateSubKey($@"*\shell\{AppName}\command"))
             {
                 commandKey.SetValue("", $@"{pathToExe} ""%1""");
             }
