@@ -13,15 +13,15 @@ Webp2Png.exe <PATH_TO_WEBP_IMAGE>
 ```
 
 ## Install
-The tool can be installed as a shell extension, by passing the ```-install``` argument.  
+The tool can be installed as a shell extension, by passing the ```--install``` argument.  
 The context menu for WEBP files will have an option to convert the image to PNG.
 
 ```shell 
-Webp2Png.exe -install
+Webp2Png.exe --install
 ```
 
 ## Uninstall
-The tool can be uninstalled in a similar fashion, by passing the ```-uninstall``` argument.
+The tool can be uninstalled in a similar fashion, by passing the ```--uninstall``` argument.
 ```shell
-Webp2Png.exe -uninstall
+Webp2Png.exe --uninstall
 ```

@@ -14,7 +14,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4.0.0
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
       - name: Build with dotnet
         run: dotnet publish Webp2Png/Webp2Png.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:PublishTrimmed=true
       - name: Create GitHub Release
@@ -25,7 +25,7 @@ jobs:
           tag_name: v${{ github.run_number }}
           draft: false
           prerelease: false
-          files: Webp2Png/bin/Release/net9.0-windows/win-x64/publish/Webp2Png.exe
+          files: Webp2Png/bin/Release/net10.0-windows/win-x64/publish/Webp2Png.exe
           body: |
             Webp2Png release build ${{ github.run_number }}
             

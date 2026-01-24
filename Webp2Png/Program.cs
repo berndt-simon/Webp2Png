@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using ConsoleAppFramework;
 using Microsoft.Win32;
 using SixLabors.ImageSharp;
 
@@ -10,32 +11,31 @@ internal static class Program
     private const string AppName = "Webp2Png";
     private const string WebpExtension = ".webp";
     private const string PngExtension = ".png";
-
-
+    
     public static void Main(string[] args)
     {
-        if (args.Length is not 1)
-        {
-            Console.Error.WriteLine("Expecting exactly one argument.");
-            Console.Error.WriteLine("Either '-install', '-uninstall', or a path to a webp file.");
-            Environment.Exit(-1);
-        }
-
-        if (args[0] == "-install")
-        {
-            Environment.Exit(Install());
-        }
-
-        if (args[0] == "-uninstall")
-        {
-            Environment.Exit(Uninstall());
-        }
-
-
-        Environment.Exit(WebpToPng(args[0]));
+        var app = ConsoleApp.Create();
+        
+        app.Add("", WebpToPng);
+        app.Add("install", Install);
+        app.Add("uninstall", Uninstall);
+        
+        app.Run(args);
     }
 
-    private static int WebpToPng(string path)
+    /// <summary>
+    /// Converts a WebP image file to a PNG image file while preserving the image content.
+    /// The WebP file is deleted upon successful conversion.
+    /// </summary>
+    /// <param name="path">
+    /// The file path to the WebP image that will be converted to PNG format.
+    /// Must be a valid and existing file path.
+    /// </param>
+    /// <return>
+    /// Returns 0 if the conversion is successful.
+    /// Returns -1 if the file does not exist or an error occurs during the conversion process.
+    /// </return>
+    private static int WebpToPng([Argument] string path)
     {
         path = Path.GetFullPath(path);
         if (!File.Exists(path))
@@ -62,6 +62,12 @@ internal static class Program
         }
     }
 
+    /// <summary>
+    /// Removes the application's registry entries to unregister any associated shell extensions.
+    /// </summary>
+    /// <return>
+    /// Returns 0 if the uninstallation is successful, or -1 if an error occurs.
+    /// </return>
     private static int Uninstall()
     {
         try
@@ -76,6 +82,12 @@ internal static class Program
         }
     }
 
+    /// <summary>
+    /// Adds registry entries to integrate the application as a shell extension.
+    /// </summary>
+    /// <returns>
+    /// Returns 0 if the installation is successful, or -1 if an error occurs.
+    /// </returns>
     private static int Install()
     {
         try
