@@ -1,7 +1,11 @@
 ﻿name: Build and Release
 
 # The version comes from the git tag through MinVer (see Directory.Build.props).
-# Push to master: build only. Push a tag v1.2.3 (or v1.2.3-rc.1): build and create a GitHub release.
+# A commit with a tag v1.2.3 (or v1.2.3-rc.1) is built and released; any other commit is only built.
+#
+# Pushing a commit and its tag together fires two push events (one per ref), so GitHub always starts
+# two runs. They share one concurrency group per commit: the later run cancels the earlier one, and
+# the surviving run looks for the release tag on the commit itself, not on the triggering ref.
 on:
   push:
     branches:
@@ -12,6 +16,10 @@ on:
   pull_request:
     branches:
       - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -28,6 +36,14 @@ jobs:
           # MinVer needs the full history and tags; a shallow clone gives 0.0.0-preview.
           fetch-depth: 0
 
+      - name: Find release tag
+        id: release
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          tag=$(git tag --points-at HEAD --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
         with:
@@ -43,10 +59,11 @@ jobs:
           path: Webp2Png/bin/Release/net11.0-windows/win-x64/publish/Webp2Png.exe
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.release.outputs.tag != ''
         uses: softprops/action-gh-release@v3
         with:
-          name: Webp2Png ${{ github.ref_name }}
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: Webp2Png ${{ steps.release.outputs.tag }}
+          prerelease: ${{ contains(steps.release.outputs.tag, '-') }}
           generate_release_notes: true
           files: Webp2Png/bin/Release/net11.0-windows/win-x64/publish/Webp2Png.exe
