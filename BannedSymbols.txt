@@ -1,0 +1,165 @@
+// BannedSymbols.txt: the house "no hacks" list for Microsoft.CodeAnalysis.BannedApiAnalyzers (RS0030).
+// Ship it at the repository root and wire it in Directory.Build.props (see the dotnet-practices skill, section 12).
+//
+// Comments start with //. A line starting with # is NOT a comment: the analyzer parses it as an (invalid) entry,
+// so it bans nothing, and two identical # lines fail the build with RS0031 ("listed more than once").
+//
+// Never suppress RS0030 to get around this list in our own code; fix the code. Bend the rule only where code we
+// don't own forces it, and only as locally as possible (see the skill, section 12):
+// - the composition root/entry point: `#pragma warning disable RS0030 // reason` around the one line;
+// - generated or library code that trips it: the library's own switch first (xunit v3: define
+//   XUNIT_GENERATED_DISABLE_WARNINGS), else a pragma around the single call into the library.
+// Never <NoWarn>RS0030</NoWarn>, and never rewrite library plumbing (such as xunit's entry point) to dodge the list.
+//
+// Format: <DocId>;<message>   (T: type, M: method, P: property, F: field, E: event, N: namespace)
+// - A method WITHOUT a parameter list bans only the parameterless overload. There are no wildcards:
+//   list every overload you mean, or ban the whole type with T:.
+// - Generic types use a backtick plus the arity (Task`1), generic arguments use braces (Action{Task}),
+//   constructors are #ctor.
+// Every active entry below was verified to fire on .NET 10 / BannedApiAnalyzers 5.6.0. These were verified NOT to fire:
+// the lock statement (Monitor.Enter(object, ref bool)), await (implicit GetResult), Task.Run(async () => ...),
+// ToLowerInvariant, and Parse(s, CultureInfo.InvariantCulture).
+
+// --- Blocking waits and sleeps. Async first, all the way down. ---
+M:System.Threading.Thread.Sleep(System.Int32);Use await Task.Delay(..., cancellationToken) instead
+M:System.Threading.Thread.Sleep(System.TimeSpan);Use await Task.Delay(..., cancellationToken) instead
+P:System.Threading.Tasks.Task`1.Result;Sync-over-async; await the task instead
+M:System.Threading.Tasks.Task.Wait;Sync-over-async; await the task instead
+M:System.Threading.Tasks.Task.Wait(System.Int32);Sync-over-async; await with a timeout/CancellationToken instead
+M:System.Threading.Tasks.Task.Wait(System.TimeSpan);Sync-over-async; await with a timeout/CancellationToken instead
+M:System.Threading.Tasks.Task.Wait(System.Threading.CancellationToken);Sync-over-async; await the task instead
+M:System.Threading.Tasks.Task.WaitAll(System.Threading.Tasks.Task[]);Use await Task.WhenAll instead
+M:System.Threading.Tasks.Task.WaitAll(System.ReadOnlySpan{System.Threading.Tasks.Task});Use await Task.WhenAll instead
+M:System.Threading.Tasks.Task.WaitAny(System.Threading.Tasks.Task[]);Use await Task.WhenAny instead
+M:System.Runtime.CompilerServices.TaskAwaiter.GetResult;Blocking wait; await the task instead
+M:System.Runtime.CompilerServices.TaskAwaiter`1.GetResult;Blocking wait; await the task instead
+M:System.Runtime.CompilerServices.ValueTaskAwaiter`1.GetResult;Blocking wait; await the task instead
+
+// --- Offloading. Task.Run is for CPU-bound work, not for escaping an async signature. ---
+M:System.Threading.Tasks.Task.Run(System.Action);Make the caller async; Task.Run(Action) is for CPU-bound work only
+M:System.Threading.Tasks.Task.Run(System.Action,System.Threading.CancellationToken);Make the caller async; Task.Run(Action) is for CPU-bound work only
+M:System.Threading.Tasks.TaskFactory.StartNew(System.Action);Use Task.Run; StartNew's default scheduler and options are a footgun
+
+// --- Fire and forget. One reviewed helper (SafeFireAndForget) owns this. ---
+M:System.Threading.Tasks.Task.ContinueWith(System.Action{System.Threading.Tasks.Task});Await the task, or route it through SafeFireAndForget
+
+// --- Task completion sources must not run continuations inline on the completing thread. ---
+M:System.Threading.Tasks.TaskCompletionSource.#ctor;Pass TaskCreationOptions.RunContinuationsAsynchronously
+M:System.Threading.Tasks.TaskCompletionSource`1.#ctor;Pass TaskCreationOptions.RunContinuationsAsynchronously
+
+// --- Cancellation is carried through, not dropped. Tests pass TestContext.Current.CancellationToken. ---
+P:System.Threading.CancellationToken.None;Pass the caller's CancellationToken through
+
+// --- Ambient time. Inject TimeProvider so behavior is reproducible in tests. ---
+P:System.DateTime.Now;Inject TimeProvider and use GetUtcNow()/GetLocalNow() instead
+P:System.DateTime.UtcNow;Inject TimeProvider and use GetUtcNow() instead
+P:System.DateTime.Today;Inject TimeProvider; local "today" is ambiguous across time zones
+P:System.DateTimeOffset.Now;Inject TimeProvider and use GetLocalNow() instead
+P:System.DateTimeOffset.UtcNow;Inject TimeProvider and use GetUtcNow() instead
+P:System.Environment.TickCount;Wraps after ~24.9 days; use Environment.TickCount64 or TimeProvider.GetTimestamp()
+
+// --- Output. Apps and libraries log through ILogger. CLI tools suppress RS0030 at the entry point; never remove the entry. ---
+T:System.Console;Use ILogger instead
+M:System.Diagnostics.Debug.WriteLine(System.String);Use ILogger instead
+M:System.Diagnostics.Debug.WriteLine(System.Object);Use ILogger instead
+M:System.Diagnostics.Debug.WriteLine(System.String,System.Object[]);Use ILogger instead
+
+// --- Telemetry: three APIs only. Logs ILogger, traces ActivitySource/Activity, metrics Meter (section 13). ---
+// Everything below is a legacy or competing model. TraceListener stays allowed: a listener that forwards
+// third-party Trace output (e.g. WPF binding errors) into ILogger is a legitimate bridge.
+T:System.Diagnostics.Trace;Legacy text tracing; use ILogger for logs and ActivitySource for distributed tracing
+T:System.Diagnostics.TraceSource;Legacy text tracing; use ILogger for logs and ActivitySource for distributed tracing
+T:System.Diagnostics.PerformanceCounter;Legacy and Windows-only; use System.Diagnostics.Metrics (Meter)
+T:System.Diagnostics.Tracing.EventCounter;Legacy; use System.Diagnostics.Metrics (Histogram/Counter)
+T:System.Diagnostics.Tracing.PollingCounter;Legacy; use System.Diagnostics.Metrics (ObservableGauge/ObservableUpDownCounter)
+T:System.Diagnostics.Tracing.IncrementingEventCounter;Legacy; use System.Diagnostics.Metrics (Counter)
+T:System.Diagnostics.Tracing.IncrementingPollingCounter;Legacy; use System.Diagnostics.Metrics (ObservableCounter)
+T:OpenTelemetry.Trace.Tracer;OpenTelemetry API shim; use System.Diagnostics.ActivitySource directly
+T:Microsoft.ApplicationInsights.TelemetryClient;Vendor telemetry model; use ILogger/ActivitySource/Meter and export via OpenTelemetry (Azure Monitor exporter)
+
+// --- Culture. Machine-readable text is invariant and comparisons are ordinal (dotnet-practices section 5). ---
+M:System.String.ToLower;Use ToLowerInvariant(), or ToLower(CultureInfo) when the result is user-facing
+M:System.String.ToUpper;Use ToUpperInvariant(), or ToUpper(CultureInfo) when the result is user-facing
+M:System.String.Compare(System.String,System.String);Pass a StringComparison (Ordinal for identifiers)
+M:System.String.Compare(System.String,System.String,System.Boolean);Pass a StringComparison (Ordinal for identifiers)
+M:System.String.StartsWith(System.String);Culture-sensitive by default; pass StringComparison.Ordinal
+M:System.String.EndsWith(System.String);Culture-sensitive by default; pass StringComparison.Ordinal
+M:System.String.IndexOf(System.String);Culture-sensitive by default; pass StringComparison.Ordinal
+M:System.Double.Parse(System.String);Pass CultureInfo.InvariantCulture, or use TryParse with a format provider
+M:System.Single.Parse(System.String);Pass CultureInfo.InvariantCulture, or use TryParse with a format provider
+M:System.Decimal.Parse(System.String);Pass CultureInfo.InvariantCulture, or use TryParse with a format provider
+M:System.Int32.Parse(System.String);Pass CultureInfo.InvariantCulture, or use TryParse with a format provider
+M:System.Int64.Parse(System.String);Pass CultureInfo.InvariantCulture, or use TryParse with a format provider
+M:System.DateTime.Parse(System.String);Use DateTime.TryParseExact with InvariantCulture and an explicit format
+M:System.Convert.ToDouble(System.String);Use double.TryParse with an explicit IFormatProvider
+M:System.Convert.ToDecimal(System.String);Use decimal.TryParse with an explicit IFormatProvider
+M:System.Convert.ToDateTime(System.String);Use DateTime.TryParseExact with InvariantCulture and an explicit format
+P:System.Text.Encoding.Default;Machine-dependent on .NET Framework; use Encoding.UTF8 or new UTF8Encoding(false) explicitly
+
+// --- Threading primitives. ---
+T:System.Threading.ReaderWriterLock;Legacy; use ReaderWriterLockSlim
+M:System.Threading.Monitor.Enter(System.Object);Use the lock statement on a System.Threading.Lock so the release is exception-safe
+
+// --- Process and runtime control. ---
+M:System.Environment.Exit(System.Int32);Skips Dispose and shutdown handlers; stop through the host lifetime instead
+M:System.GC.Collect;Almost always makes throughput worse; fix the allocation instead
+M:System.GC.Collect(System.Int32);Almost always makes throughput worse; fix the allocation instead
+M:System.Diagnostics.Process.Start(System.String);Use ProcessStartInfo with UseShellExecute set explicitly and an ArgumentList
+M:System.Diagnostics.Process.Start(System.String,System.String);Use ProcessStartInfo with an ArgumentList; string arguments invite injection
+M:System.IO.Path.GetTempFileName;Creates the file eagerly and fails after 65535 files; use Directory.CreateTempSubdirectory or Path.GetRandomFileName
+
+// --- Exceptions. Throw specific types. (Banning System.Exception.#ctor is optional below: it also flags `: base(message)`.) ---
+M:System.ApplicationException.#ctor(System.String);Derive from Exception or throw a specific type
+M:System.NullReferenceException.#ctor(System.String);Runtime-reserved; throw ArgumentNullException or InvalidOperationException
+M:System.IndexOutOfRangeException.#ctor(System.String);Runtime-reserved; throw ArgumentOutOfRangeException
+
+// --- XML. Known structures are mapped by generated XmlReader/XmlWriter code; LINQ to XML only for small irregular documents. ---
+// XmlSerializer reflects over every public member, so the class layout silently becomes the file format, and every
+// constructor except (Type) and (Type, string) emits a new dynamic assembly per call that is never unloaded.
+T:System.Xml.XmlDocument;Legacy DOM; use generated XmlReader/XmlWriter mapping, or XDocument for small irregular documents
+T:System.Xml.Serialization.XmlSerializer;Runtime reflection and leaks dynamic assemblies; use generated XmlReader/XmlWriter mapping
+
+// --- Legacy non-generic collections. ---
+T:System.Collections.ArrayList;Use List<T>
+T:System.Collections.Hashtable;Use Dictionary<TKey,TValue>
+T:System.Collections.SortedList;Use SortedList<TKey,TValue>
+T:System.Collections.Stack;Use Stack<T>
+T:System.Collections.Queue;Use Queue<T>
+
+// --- Reflection into private state. ---
+M:System.Type.GetField(System.String,System.Reflection.BindingFlags);Do not reach into private state; change the design instead
+M:System.Type.GetProperty(System.String,System.Reflection.BindingFlags);Do not reach into private state; change the design instead
+M:System.Type.GetMethod(System.String,System.Reflection.BindingFlags);Do not reach into private state; change the design instead
+
+// --- Logging library only at the composition root (#pragma warning disable RS0030 there). ---
+N:Serilog;Use ILogger<T>; Serilog is allowed only at the composition root
+N:log4net;Do not use log4net
+
+// ======================================================================================================
+// Optional sections. Enable the ones that match the project by removing the leading "// ".
+// ======================================================================================================
+
+// --- `new Exception("...")`. Caution: this also flags `: base(message)` in every custom exception type, so each one
+//     needs a local `#pragma warning disable RS0030`. Worth it only in code bases with few exception types. ---
+// M:System.Exception.#ctor(System.String);Throw a specific exception type
+
+// --- Determinism (simulations, replays, AI pipelines): randomness and ids are injected. ---
+// P:System.Random.Shared;Inject a seeded Random or an id generator instead
+// M:System.Random.#ctor;Inject a seeded Random or an id generator instead
+// M:System.Guid.NewGuid;Inject an id generator instead
+
+// --- AOT / trimming: no runtime code generation or dynamic type resolution. ---
+// N:System.Reflection.Emit;No runtime codegen; keep AOT/trim clean (use a source generator)
+// T:System.Activator;Use new() or a factory delegate
+// M:System.Type.GetType(System.String);No dynamic type resolution; keep AOT/trim clean
+
+// --- Money and rules math: never let binary floating point into decimal. ---
+// M:System.Convert.ToDecimal(System.Double);Never convert double to decimal
+// M:System.Decimal.#ctor(System.Double);Never convert double to decimal
+
+// --- EF Core: migrations-first, so the tested schema is the shipped schema. ---
+// M:Microsoft.EntityFrameworkCore.Infrastructure.DatabaseFacade.EnsureCreated;Use migrations instead
+// M:Microsoft.EntityFrameworkCore.Infrastructure.DatabaseFacade.EnsureCreatedAsync(System.Threading.CancellationToken);Use migrations instead
+
+// --- UI: project-specific replacements, for example a themed message box. ---
+// T:System.Windows.MessageBox;Use the app's themed message box (same call shape)

@@ -1,20 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <OutputType>exe</OutputType>
-        <TargetFramework>net11.0-windows</TargetFramework>
-        <Nullable>enable</Nullable>
-        <ApplicationIcon>icon.ico</ApplicationIcon>
-        <SixLaborsLicenseKey>$(SIXLABORS_LICENSE_KEY)</SixLaborsLicenseKey>
-        <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    </PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0-windows</TargetFramework>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- Headless tool: no culture-dependent behavior, smaller trimmed output. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
 
-    <ItemGroup>
-      <PackageReference Include="ConsoleAppFramework" Version="5.7.13">
-        <PrivateAssets>all</PrivateAssets>
-        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      </PackageReference>
-      <PackageReference Include="SixLabors.ImageSharp" Version="4.0.0" />
-    </ItemGroup>
+  <PropertyGroup Label="ImageSharp license">
+    <SixLaborsLicenseKey>$(SIXLABORS_LICENSE_KEY)</SixLaborsLicenseKey>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ConsoleAppFramework" PrivateAssets="all"
+                      IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    <PackageReference Include="SixLabors.ImageSharp" />
+  </ItemGroup>
 
 </Project>

@@ -1,9 +1,20 @@
-﻿name: Create Release
+﻿name: Build and Release
 
+# The version comes from the git tag through MinVer (see Directory.Build.props).
+# Push to master: build only. Push a tag v1.2.3 (or v1.2.3-rc.1): build and create a GitHub release.
 on:
   push:
     branches:
       - master
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -11,26 +22,30 @@ jobs:
     env:
       SIXLABORS_LICENSE_KEY: ${{ secrets.SIXLABORS_LICENSE_KEY }}
     steps:
-      - uses: actions/checkout@v6
-        
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@v7
         with:
-          dotnet-version: '11.0.x'
-          dotnet-quality: 'preview'
-      - name: Build with dotnet
+          # MinVer needs the full history and tags; a shallow clone gives 0.0.0-preview.
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Publish
         run: dotnet publish Webp2Png/Webp2Png.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:PublishTrimmed=true
-        
+
+      - name: Upload build
+        uses: actions/upload-artifact@v7
+        with:
+          name: Webp2Png
+          path: Webp2Png/bin/Release/net11.0-windows/win-x64/publish/Webp2Png.exe
+
       - name: Create GitHub Release
-        id: create_release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
-          name: Webp2Png v${{ github.run_number }}
-          tag_name: v${{ github.run_number }}
-          draft: false
-          prerelease: false
+          name: Webp2Png ${{ github.ref_name }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
           files: Webp2Png/bin/Release/net11.0-windows/win-x64/publish/Webp2Png.exe
-          body: |
-            Webp2Png release build ${{ github.run_number }}
-            
-            Automated build from the master branch.
