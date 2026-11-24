@@ -9,6 +9,12 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
+  <PropertyGroup Label="Native AOT">
+    <!-- Release builds are published with Native AOT (dotnet publish -r win-x64 -p:PublishAot=true).
+         IsAotCompatible keeps the AOT and trim analyzers on in every build, so problems surface before publish. -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
   <PropertyGroup Label="ImageSharp license">
     <SixLaborsLicenseKey>$(SIXLABORS_LICENSE_KEY)</SixLaborsLicenseKey>
   </PropertyGroup>

@@ -18,7 +18,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Native AOT for win-x64 must be compiled on Windows (MSVC linker).
+    runs-on: windows-latest
     env:
       SIXLABORS_LICENSE_KEY: ${{ secrets.SIXLABORS_LICENSE_KEY }}
     steps:
@@ -33,7 +34,7 @@ jobs:
           global-json-file: global.json
 
       - name: Publish
-        run: dotnet publish Webp2Png/Webp2Png.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:PublishTrimmed=true
+        run: dotnet publish Webp2Png/Webp2Png.csproj -c Release -r win-x64 -p:PublishAot=true
 
       - name: Upload build
         uses: actions/upload-artifact@v7
